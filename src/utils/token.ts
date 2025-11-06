@@ -16,9 +16,13 @@ function decodeJwt(token: string): any | null {
 }
 
 // --- Token Setters/Getters ---
-export function setTokens(accessToken: string, refreshToken: string) {
-    Cookies.set(ACCESS_TOKEN_KEY, accessToken, { expires: 1 / 24 }); // 1 hour
-    Cookies.set(REFRESH_TOKEN_KEY, refreshToken, { expires: 7 });    // 7 days
+export function setAccessToken(token: string) {
+    Cookies.set(ACCESS_TOKEN_KEY, token, { expires: 1 / 24 }); // 1 hour
+}
+
+// --- Token Setters/Getters ---
+export function setRefreshToken(token: string) {
+    Cookies.set(REFRESH_TOKEN_KEY, token, { expires: 30 });    // 7 days
 }
 
 export function getAccessToken(): string | undefined {

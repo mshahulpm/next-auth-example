@@ -1,7 +1,9 @@
 'use client';
 
 import { loginApi } from '@/api/auth';
+import { registerAxiosLogoutCallback } from '@/api/apiClient';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import * as tokenUtils from '@/utils/token'
 
 type User = {
     user_id: string
@@ -24,16 +26,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isAuthorized, setIsAuthorized] = useState(false)
     const [loading, setLoading] = useState(true);
 
-    // Try loading user from localStorage or cookie
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('accessToken');
-        if (storedUser && storedToken) {
-            setUser(JSON.parse(storedUser));
-            setIsAuthorized(true)
-        }
-        setLoading(false);
-    }, []);
 
     const login = async (email: string, password: string) => {
 
@@ -41,9 +33,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setUser(data.user);
         setIsAuthorized(true);
+        setLoading(false)
 
         localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('accessToken', data.access_token);
+        tokenUtils.setAccessToken(data.access_token)
+        tokenUtils.setRefreshToken(data.refresh_token)
 
     };
 
@@ -51,8 +45,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setIsAuthorized(false);
         localStorage.removeItem('user');
-        localStorage.removeItem('accessToken');
+        tokenUtils.clearTokens()
     };
+
+    // Try loading user from localStorage or cookie
+    useEffect(() => {
+        // need to fetch user info and store
+        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('accessToken');
+        if (storedUser && storedToken) {
+            setUser(JSON.parse(storedUser));
+            setIsAuthorized(true)
+        }
+        setLoading(false);
+        registerAxiosLogoutCallback(logout)
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user, isAuthorized, loading, login, logout }}>
