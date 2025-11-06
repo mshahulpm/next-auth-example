@@ -4,6 +4,7 @@ import { loginApi } from '@/api/auth';
 import { registerAxiosLogoutCallback } from '@/api/apiClient';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as tokenUtils from '@/utils/token'
+import { getProfileApi } from '@/api/profile';
 
 type User = {
     user_id: string
@@ -22,9 +23,15 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [isAuthorized, setIsAuthorized] = useState(false)
-    const [loading, setLoading] = useState(true);
+
+    const storedUser = localStorage.getItem('user');
+    const isAccessTokenValid = tokenUtils.isAccessTokenValid()
+    const isRefreshTokenValid = tokenUtils.isRefreshTokenValid()
+    const isValidTokens = isAccessTokenValid && isRefreshTokenValid
+
+    const [user, setUser] = useState<User | null>(storedUser ? JSON.parse(storedUser) : null);
+    const [isAuthorized, setIsAuthorized] = useState(isValidTokens)
+    const [loading, setLoading] = useState(isValidTokens && !storedUser);
 
 
     const login = async (email: string, password: string) => {
@@ -33,7 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setUser(data.user);
         setIsAuthorized(true);
-        setLoading(false)
+        setLoading(false);
 
         localStorage.setItem('user', JSON.stringify(data.user));
         tokenUtils.setAccessToken(data.access_token)
@@ -45,19 +52,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setIsAuthorized(false);
         localStorage.removeItem('user');
-        tokenUtils.clearTokens()
+        tokenUtils.clearTokens();
     };
 
     // Try loading user from localStorage or cookie
     useEffect(() => {
         // need to fetch user info and store
-        const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('accessToken');
-        if (storedUser && storedToken) {
-            setUser(JSON.parse(storedUser));
-            setIsAuthorized(true)
+
+        async function init() {
+
+            if (isValidTokens) {
+                try {
+                    // need to fetch the user info 
+                    const user = await getProfileApi()
+                    setUser(user as User)
+                    setLoading(false)
+                } catch (error) {
+                    setIsAuthorized(false)
+                    setLoading(false)
+                    setUser(null)
+                }
+            } else {
+                setIsAuthorized(false)
+                setLoading(false)
+                setUser(null)
+            }
+
         }
-        setLoading(false);
+
+        init()
+
         registerAxiosLogoutCallback(logout)
     }, []);
 
